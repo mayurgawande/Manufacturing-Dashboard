@@ -1,0 +1,23 @@
+<div class="dashboard">
+    <h1>{{ config?.environmentName }} - Device Dashboard</h1>
+    
+    <div *ngIf="devices && devices.length">
+      <label for="device-select">Select Device:</label>
+      <select id="device-select" (change)="selectDevice($event)">
+        <option *ngFor="let device of devices" [value]="device.id">
+          {{ device.id }}
+        </option>
+      </select>
+    </div>
+  <div *ngIf="deviceId">
+    <app-device-status [deviceId]="deviceId"></app-device-status>
+  </div>
+
+   <div *ngIf="deviceId">
+    <app-production-progress [deviceId]="deviceId"></app-production-progress>
+   </div> 
+   <div *ngIf="deviceId">
+        <app-historical-data [deviceId]="deviceId"></app-historical-data>
+   </div> 
+</div>
+  
