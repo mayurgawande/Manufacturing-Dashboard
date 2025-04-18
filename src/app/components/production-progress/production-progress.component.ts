@@ -13,7 +13,7 @@ export class ProductionProgressComponent implements OnInit {
 
   constructor(private apiService: ApiService) {}
 
-  ngOnInit(): void { debugger
+  ngOnInit(): void { 
     if (this.deviceId) {
       this.apiService.getDeviceEvents(this.deviceId).subscribe((data:any) => {
         this.productionProgress = data.partsPerMinute;

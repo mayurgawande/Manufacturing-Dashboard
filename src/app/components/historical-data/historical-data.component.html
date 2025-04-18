@@ -1,5 +1,8 @@
-<div *ngIf="historicalData.length === 0"><p>Data count: {{ historicalData.length }}</p>
+<!-- <div *ngIf="historicalData.length === 0"><p>Data count: {{ historicalData.length }}</p>{{historicalData.length}}
   No historical data available for this device.
 </div>
 
-<div id="chart" *ngIf="historicalData.length > 0"></div>
+<div id="chart" *ngIf="historicalData.length > 0"></div> -->
+<div *ngIf="historicalData && historicalData.length === 0">No historical data available for this device.</div>{{historicalData.length}}
+
+<div #chartContainer class="chart-container"></div>

@@ -37,7 +37,7 @@ export class DashboardComponent implements OnInit {
     );
   }
 
-  selectDevice(event: Event): void { debugger
+  selectDevice(event: Event): void {
     const selectedDeviceId = (event.target as HTMLSelectElement).value;
     this.deviceId = selectedDeviceId;
   }

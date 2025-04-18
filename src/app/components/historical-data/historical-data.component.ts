@@ -1,4 +1,14 @@
-import { Component, Input, OnInit, OnDestroy, NgZone, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  Input,
+  OnInit,
+  OnDestroy,
+  NgZone,
+  ChangeDetectorRef,
+  ViewChild,
+  ElementRef,
+  AfterViewInit
+} from '@angular/core';
 
 import * as d3 from 'd3';
 import { Subscription } from 'rxjs';
@@ -9,15 +19,16 @@ import { ApiService } from 'src/app/core/service/api.service';
   templateUrl: './historical-data.component.html',
   styleUrls: ['./historical-data.component.scss']
 })
-export class HistoricalDataComponent implements OnInit, OnDestroy {
+export class HistoricalDataComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() deviceId!: string;
-  historicalData: { timestamp: Date, partsPerMinute: number }[] = [];
+  @ViewChild('chartContainer', { static: false }) chartContainer!: ElementRef;
 
+  historicalData: { timestamp: Date; partsPerMinute: number }[] = [];
   private sseSubscription!: Subscription;
   private svg: any;
   private margin = { top: 20, right: 30, bottom: 30, left: 40 };
-  private width = 600 - this.margin.left - this.margin.right;
-  private height = 300 - this.margin.top - this.margin.bottom;
+  private width = 600;
+  private height = 300;
 
   constructor(
     private apiService: ApiService,
@@ -26,9 +37,18 @@ export class HistoricalDataComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    if (this.deviceId) {
+    // Move SSE subscription to ngAfterViewInit to avoid chartContainer being undefined
+  }
+
+  ngAfterViewInit(): void {
+    if (this.chartContainer) {
       this.initChart();
-      this.subscribeToEvents();
+      if (this.deviceId) {
+        this.subscribeToEvents(); // Now safe to start streaming + chart ready
+      }
+    } else {
+      console.warn('chartContainer not found, retrying...');
+      setTimeout(() => this.ngAfterViewInit(), 50); // Retry after slight delay
     }
   }
 
@@ -36,59 +56,67 @@ export class HistoricalDataComponent implements OnInit, OnDestroy {
     this.sseSubscription = this.apiService.getDeviceEvents(this.deviceId).subscribe(
       (event: any) => {
         this.zone.run(() => {
-          if (event && event.timestamp && event.partsPerMinute !== undefined) {
-            const parsedEvent = {
-              timestamp: new Date(event.timestamp),
-              partsPerMinute: event.partsPerMinute
-            };
-            this.historicalData = [...this.historicalData, parsedEvent]; // trigger change detection
-            this.updateChart();
-            this.cd.detectChanges(); // ensure Angular knows about the change
-          }
+          const data = {
+            timestamp: new Date(event.timestamp),
+            partsPerMinute: event.partsPerMinute
+          };
+          this.historicalData.push(data);
+          this.updateChart();
+          this.cd.detectChanges();
         });
       },
-      (error) => {
-        console.error('Error receiving SSE data:', error);
-      }
+      (error) => console.error('SSE error:', error)
     );
   }
 
   initChart(): void {
-    this.svg = d3.select('#chart')
+    const element = this.chartContainer?.nativeElement;
+    if (!element) {
+      console.error('Chart container element not found');
+      return;
+    }
+
+    this.svg = d3
+      .select(element)
       .append('svg')
-      .attr('width', this.width + this.margin.left + this.margin.right)
-      .attr('height', this.height + this.margin.top + this.margin.bottom)
+      .attr('width', this.width)
+      .attr('height', this.height)
       .append('g')
-      .attr('transform', `translate(${this.margin.left},${this.margin.top})`);
+      .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`);
   }
 
   updateChart(): void {
-    // Clear previous content
+    if (!this.svg || this.historicalData.length === 0) return;
+
     this.svg.selectAll('*').remove();
 
-    if (this.historicalData.length === 0) return;
+    const width = this.width - this.margin.left - this.margin.right;
+    const height = this.height - this.margin.top - this.margin.bottom;
 
-    const x = d3.scaleTime()
-      .domain(d3.extent(this.historicalData, d => d.timestamp) as [Date, Date])
-      .range([0, this.width]);
+    const x = d3
+      .scaleTime()
+      .domain(d3.extent(this.historicalData, (d) => d.timestamp) as [Date, Date])
+      .range([0, width]);
 
-    const y = d3.scaleLinear()
-      .domain([0, d3.max(this.historicalData, d => d.partsPerMinute) || 0])
-      .nice()
-      .range([this.height, 0]);
+    const y = d3
+      .scaleLinear()
+      .domain([0, d3.max(this.historicalData, (d) => d.partsPerMinute) || 100])
+      .range([height, 0]);
 
-    const line = d3.line<{ timestamp: Date, partsPerMinute: number }>()
-      .x(d => x(d.timestamp))
-      .y(d => y(d.partsPerMinute));
+    const line = d3
+      .line<{ timestamp: Date; partsPerMinute: number }>()
+      .x((d) => x(d.timestamp))
+      .y((d) => y(d.partsPerMinute));
 
-    this.svg.append('g')
-      .attr('transform', `translate(0,${this.height})`)
-      .call(d3.axisBottom(x));
+    this.svg
+      .append('g')
+      .attr('transform', `translate(0,${height})`)
+      .call(d3.axisBottom(x).ticks(5));
 
-    this.svg.append('g')
-      .call(d3.axisLeft(y));
+    this.svg.append('g').call(d3.axisLeft(y));
 
-    this.svg.append('path')
+    this.svg
+      .append('path')
       .datum(this.historicalData)
       .attr('fill', 'none')
       .attr('stroke', 'steelblue')
@@ -97,8 +125,6 @@ export class HistoricalDataComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.sseSubscription) {
-      this.sseSubscription.unsubscribe();
-    }
+    this.sseSubscription?.unsubscribe();
   }
 }

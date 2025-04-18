@@ -14,29 +14,15 @@ export class DeviceStatusComponent implements OnChanges {
   constructor(private apiService: ApiService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['deviceId']) { debugger
+    if (changes['deviceId']) { 
       this.loadDeviceStatus();
     }
   }
-
-  // loadDeviceStatus(): void {
-  //   if (this.deviceId) {
-  //     this.apiService.getEvents(this.deviceId).subscribe(
-  //       (eventData:any) => { debugger
-  //         this.deviceStatus = eventData.status;
-  //         console.log("the device status is", this.deviceStatus);
-  //       },
-  //       (error:any) => {
-  //         this.deviceStatus = 'Error loading status';
-  //       }
-  //     );
-  //   }
-  // }
   loadDeviceStatus(): void {
     if (this.deviceId) {
       this.apiService.getDeviceEvents(this.deviceId).subscribe(
         (eventData) => {
-          this.deviceStatus = eventData.status;
+          this.deviceStatus = eventData?.status || 'Unknown status';
           console.log("SSE Device Status:", this.deviceStatus);
         },
         (error) => {
